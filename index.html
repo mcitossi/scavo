@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1b1712">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Diario di scavo · Matrice di Harris</title>
+<style>
+  :root{
+    --bg:#f4efe6; --paper:#fffdf8; --ink:#2a241c; --dim:#7a6e5f; --line:#d9cfbf;
+    --terra:#b5562b; --ocra:#c8902e; --ok:#3d7a4f; --err:#b3261e;
+    --f1:#e8d6b9; --f2:#d4e2c8; --f3:#cfdbe8; --f4:#ead0d4; --f5:#ddd5ea;
+    color-scheme: light;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0; background:var(--bg); color:var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size:15px;}
+  header{padding:14px 18px 10px; border-bottom:1px solid var(--line); background:var(--paper);
+    display:flex; flex-wrap:wrap; gap:10px 18px; align-items:baseline; justify-content:space-between}
+  h1{font-family: Georgia, "Times New Roman", serif; font-size:22px; margin:0; font-weight:700; letter-spacing:.01em}
+  h1 small{font-family:inherit; font-weight:400; color:var(--dim); font-size:15px; margin-left:8px}
+  .tools{display:flex; flex-wrap:wrap; gap:6px}
+  button, select, input, textarea{font:inherit; color:inherit}
+  button{background:var(--paper); border:1px solid var(--line); border-radius:7px; padding:9px 14px; min-height:42px; cursor:pointer}
+  button:hover{border-color:var(--terra)}
+  button.pri{background:var(--terra); color:#fff; border-color:var(--terra)}
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible{outline:2px solid var(--ocra); outline-offset:1px}
+  main{display:grid; grid-template-columns: minmax(300px, 420px) 1fr; gap:0; min-height:calc(100vh - 60px)}
+  @media (max-width: 860px){ main{grid-template-columns:1fr} }
+  aside{border-right:1px solid var(--line); background:var(--paper); padding:14px 16px; overflow:auto}
+  section.view{padding:14px 18px; overflow:auto}
+  h2{font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); margin:16px 0 8px; font-weight:600}
+  h2:first-child{margin-top:0}
+  .row{display:flex; gap:6px; align-items:center; flex-wrap:wrap}
+  input[type=text], input[type=number], select, textarea{background:#fff; border:1px solid var(--line); border-radius:6px; padding:6px 8px}
+  input[type=number]{width:74px}
+  textarea{width:100%; min-height:52px; resize:vertical}
+  .uslist{display:flex; flex-direction:column; gap:4px; margin-top:6px}
+  .us{display:grid; grid-template-columns:56px 1fr auto; gap:8px; align-items:center; padding:6px 8px;
+      border:1px solid var(--line); border-radius:6px; background:#fff; cursor:pointer}
+  .us.sel{border-color:var(--terra); box-shadow:0 0 0 1px var(--terra) inset}
+  .us b{font-family:Georgia,serif; font-size:16px}
+  .us span{color:var(--dim); font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .tag{font-size:11px; padding:2px 6px; border-radius:99px; border:1px solid var(--line); color:var(--dim)}
+  .rels{display:flex; flex-direction:column; gap:3px; margin-top:6px; font-size:14px}
+  .rel{display:flex; justify-content:space-between; gap:8px; padding:4px 8px; border-radius:5px; background:#fff; border:1px solid var(--line)}
+  .rel.bad{border-color:var(--err); background:#fbeceb}
+  .rel button{padding:0 7px; border:none; color:var(--dim)}
+  .status{margin:0 0 12px; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:var(--paper); font-size:14px}
+  .status.ok{border-color:#b9d3bf}
+  .status.err{border-color:var(--err); background:#fbeceb; color:#5e140f}
+  .status b{font-weight:700}
+  .legend{display:flex; flex-wrap:wrap; gap:8px; margin:0 0 10px; font-size:13px; color:var(--dim)}
+  .legend i{display:inline-block; width:12px; height:12px; border-radius:3px; border:1px solid #0002; vertical-align:-2px; margin-right:4px}
+  .canvas{background:var(--paper); border:1px solid var(--line); border-radius:8px; overflow:auto}
+  svg text{font-family:Georgia,serif}
+  .detail{margin-top:12px; padding:12px; border:1px solid var(--line); border-radius:8px; background:#fff}
+  .detail h3{margin:0 0 6px; font-family:Georgia,serif}
+  .muted{color:var(--dim); font-size:13px}
+  .ex{display:inline-block; font-size:12px; color:#fff; background:var(--ocra); border-radius:99px; padding:2px 8px; margin-left:6px}
+  @media print{ aside, .tools{display:none} main{display:block} .canvas{border:none} }
+</style>
+</head>
+<body>
+<header>
+  <h1>Diario di scavo <small>Matrice di Harris</small><span class="ex" id="exflag">dati di esempio</span></h1>
+  <div class="tools">
+    <button type="button" id="b-new">Nuovo scavo</button>
+    <button type="button" id="b-example">Esempio</button>
+    <button type="button" id="b-export">Esporta JSON</button>
+    <label class="row" style="gap:4px"><button type="button" id="b-import">Importa JSON</button><input type="file" id="f-import" accept="application/json" hidden></label>
+    <button type="button" id="b-csv">Esporta CSV</button>
+    <button type="button" id="b-print">Stampa</button>
+  </div>
+</header>
+<main>
+  <aside>
+    <h2>Nuova unità stratigrafica</h2>
+    <div class="row">
+      <input type="number" id="n-num" min="1" placeholder="US" aria-label="Numero US">
+      <select id="n-tipo" aria-label="Tipo">
+        <option value="strato">strato</option><option value="taglio">taglio</option>
+        <option value="riempimento">riempimento</option><option value="struttura">struttura</option>
+      </select>
+      <input type="text" id="n-fase" placeholder="fase" style="width:90px" aria-label="Fase">
+    </div>
+    <div class="row" style="margin-top:6px"><input type="text" id="n-desc" placeholder="descrizione (es. strato di crollo con tegole)" style="flex:1" aria-label="Descrizione"></div>
+    <div class="row" style="margin-top:6px"><button type="button" class="pri" id="b-add">Aggiungi US</button><span class="muted" id="add-msg"></span></div>
+
+    <h2>Nuovo rapporto stratigrafico</h2>
+    <div class="row">
+      <select id="r-a" aria-label="US"></select>
+      <select id="r-tipo" aria-label="Rapporto">
+        <option value="copre">copre</option><option value="taglia">taglia</option>
+        <option value="riempie">riempie</option><option value="si appoggia a">si appoggia a</option>
+        <option value="è uguale a">è uguale a</option>
+      </select>
+      <select id="r-b" aria-label="US"></select>
+      <button type="button" class="pri" id="b-rel">Aggiungi</button>
+    </div>
+    <p class="muted" style="margin:6px 0 0">"Copre", "taglia", "riempie" e "si appoggia a" dicono che la prima US è <b>più recente</b> della seconda. "È uguale a" unisce due US che sono la stessa unità.</p>
+
+    <h2>Unità stratigrafiche <span id="us-count" class="muted"></span></h2>
+    <div class="uslist" id="uslist"></div>
+
+    <h2>Rapporti <span id="rel-count" class="muted"></span></h2>
+    <div class="rels" id="rels"></div>
+  </aside>
+
+  <section class="view">
+    <div class="status" id="status"></div>
+    <div class="legend" id="legend"></div>
+    <div class="canvas" id="canvas"></div>
+    <div class="detail" id="detail" hidden></div>
+    <p class="muted" style="margin-top:12px">La matrice mostra solo i rapporti diretti: quelli già implicati da altri (se A copre B e B copre C, "A copre C" è ridondante) vengono nascosti, come vuole il metodo di Harris. Funziona senza connessione; i dati restano solo su questo dispositivo.</p>
+  </section>
+</main>
+
+<script>
+"use strict";
+/* ============ dati ============ */
+const ESEMPIO = {
+  nome: "Saggio A — scavo didattico (dati di esempio)",
+  us: [
+    {n:1,  tipo:"strato",      fase:"I",   desc:"Humus superficiale"},
+    {n:2,  tipo:"strato",      fase:"I",   desc:"Strato agricolo moderno"},
+    {n:3,  tipo:"strato",      fase:"II",  desc:"Crollo di tegole e coppi"},
+    {n:4,  tipo:"taglio",      fase:"II",  desc:"Taglio di fossa di spoliazione"},
+    {n:5,  tipo:"riempimento", fase:"II",  desc:"Riempimento della fossa 4, terra e pietre"},
+    {n:6,  tipo:"struttura",   fase:"III", desc:"Muro in opera incerta, lato nord"},
+    {n:7,  tipo:"strato",      fase:"III", desc:"Piano pavimentale in cocciopesto"},
+    {n:8,  tipo:"strato",      fase:"III", desc:"Preparazione del pavimento"},
+    {n:9,  tipo:"struttura",   fase:"III", desc:"Muro in opera incerta, lato est"},
+    {n:10, tipo:"taglio",      fase:"IV",  desc:"Taglio di buca di palo"},
+    {n:11, tipo:"riempimento", fase:"IV",  desc:"Riempimento della buca 10, carboni"},
+    {n:12, tipo:"strato",      fase:"IV",  desc:"Livello di frequentazione più antico"},
+    {n:13, tipo:"strato",      fase:"V",   desc:"Argilla sterile naturale"},
+    {n:14, tipo:"strato",      fase:"II",  desc:"Stesso crollo di 3, nel settore est"},
+    {n:15, tipo:"strato",      fase:"II",  desc:"Strato di abbandono, settore ovest"},
+    {n:16, tipo:"taglio",      fase:"II",  desc:"Taglio di fossa per rifiuti"},
+    {n:17, tipo:"riempimento", fase:"II",  desc:"Riempimento della fossa 16, ceramica comune"},
+    {n:18, tipo:"struttura",   fase:"III", desc:"Focolare in laterizi"},
+    {n:19, tipo:"strato",      fase:"III", desc:"Battuto pavimentale, settore ovest"}
+  ],
+  rel: [
+    [1,"copre",2],[2,"copre",3],[2,"copre",5],[5,"riempie",4],[4,"taglia",3],
+    [3,"copre",7],[3,"si appoggia a",6],[4,"taglia",6],[7,"si appoggia a",6],
+    [7,"copre",8],[8,"si appoggia a",9],[6,"copre",12],[9,"copre",12],[8,"copre",12],
+    [11,"riempie",10],[10,"taglia",12],[8,"copre",11],[12,"copre",13],[14,"è uguale a",3],
+    [2,"copre",14],[2,"copre",15],[2,"copre",17],[17,"riempie",16],[16,"taglia",15],
+    [15,"copre",18],[18,"si appoggia a",19],[16,"taglia",19],[19,"si appoggia a",6],[19,"copre",12]
+  ]
+};
+const CHIAVE = "diario-scavo-harris-v1";
+let S = carica() || clone(ESEMPIO);
+let sel = null;
+
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+function carica(){ try{ const t = localStorage.getItem(CHIAVE); return t ? JSON.parse(t) : null; }catch(e){ return null; } }
+function salva(){ try{ localStorage.setItem(CHIAVE, JSON.stringify(S)); }catch(e){} }
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ============ analisi stratigrafica ============ */
+function analizza(){
+  const nums = S.us.map(u => u.n);
+  // 1. "è uguale a" -> union-find
+  const par = {}; nums.forEach(n => par[n] = n);
+  const find = x => par[x] === x ? x : (par[x] = find(par[x]));
+  S.rel.forEach(([a,t,b]) => { if (t === "è uguale a" && par[a] != null && par[b] != null) par[find(a)] = find(b); });
+  const gruppi = {}; nums.forEach(n => (gruppi[find(n)] ||= []).push(n));
+  Object.values(gruppi).forEach(g => g.sort((x,y)=>x-y));
+  const rap = n => gruppi[find(n)][0];               // rappresentante = US con numero più basso
+  const nodi = [...new Set(nums.map(rap))].sort((a,b)=>a-b);
+
+  // 2. archi "più recente -> più antico"
+  const succ = {}; nodi.forEach(n => succ[n] = new Set());
+  const origine = {};                                 // arco -> indici dei rapporti che lo generano
+  S.rel.forEach(([a,t,b], i) => {
+    if (t === "è uguale a" || par[a] == null || par[b] == null) return;
+    const A = rap(a), B = rap(b);
+    if (A === B) { (origine["self"+A] ||= []).push(i); succ[A].add(A); return; }
+    succ[A].add(B); (origine[A+">"+B] ||= []).push(i);
+  });
+
+  // 3. cicli (contraddizioni)
+  const colore = {}, pila = [], cicli = [];
+  function dfs(u){
+    colore[u] = 1; pila.push(u);
+    for (const v of succ[u]){
+      if (colore[v] === 1){ cicli.push(pila.slice(pila.indexOf(v)).concat(v)); }
+      else if (!colore[v]) dfs(v);
+    }
+    pila.pop(); colore[u] = 2;
+  }
+  nodi.forEach(n => { if (!colore[n]) dfs(n); });
+  if (cicli.length){
+    const relBad = new Set();
+    cicli.forEach(c => { for (let k=0;k<c.length-1;k++){ const key = c[k]===c[k+1] ? "self"+c[k] : c[k]+">"+c[k+1]; (origine[key]||[]).forEach(i=>relBad.add(i)); } });
+    return {ok:false, cicli, relBad, gruppi, rap, nodi};
+  }
+
+  // 4. ordine topologico + riduzione transitiva
+  const ordine = [], vis = {};
+  (function topo(){ const f = u => { vis[u]=1; succ[u].forEach(v => { if(!vis[v]) f(v); }); ordine.push(u); }; nodi.forEach(n => { if(!vis[n]) f(n); }); })();
+  ordine.reverse();                                   // dal più recente al più antico
+  const raggiunge = {};
+  for (let i = ordine.length-1; i >= 0; i--){
+    const u = ordine[i], r = new Set();
+    succ[u].forEach(v => { r.add(v); raggiunge[v].forEach(w => r.add(w)); });
+    raggiunge[u] = r;
+  }
+  const diretti = [], ridondanti = [];
+  nodi.forEach(u => succ[u].forEach(v => {
+    let altro = false;
+    for (const w of succ[u]) if (w !== v && raggiunge[w].has(v)) { altro = true; break; }
+    (altro ? ridondanti : diretti).push([u,v]);
+  }));
+
+  // 5. livelli (percorso più lungo dall'alto)
+  const liv = {}; ordine.forEach(u => liv[u] = liv[u] ?? 0);
+  ordine.forEach(u => succ[u].forEach(v => { liv[v] = Math.max(liv[v] ?? 0, liv[u] + 1); }));
+  return {ok:true, gruppi, rap, nodi, diretti, ridondanti, liv, raggiunge};
+}
+
+/* ============ disegno della matrice ============ */
+const COL_FASE = ["var(--f1)","var(--f2)","var(--f3)","var(--f4)","var(--f5)"];
+function coloreFase(f){
+  const fasi = [...new Set(S.us.map(u => u.fase || "—"))];
+  return COL_FASE[fasi.indexOf(f || "—") % COL_FASE.length];
+}
+function disegna(R){
+  const box = $("canvas");
+  if (!R.ok){ box.innerHTML = ""; return; }
+  const W = 96, H = 44, GX = 22, GY = 46, M = 24, WV = 14;   // WV: larghezza dei punti di passaggio
+  // elementi per livello: US reali + punti di passaggio per i rapporti che scavalcano livelli
+  const livelli = {}, larg = {}, catene = [];
+  const add = (l, id, w) => { (livelli[l] ||= []).push(id); larg[id] = w; };
+  R.nodi.forEach(n => add(R.liv[n], n, W));
+  R.diretti.forEach(([u,v]) => {
+    const c = [u];
+    for (let l = R.liv[u]+1; l < R.liv[v]; l++){ const id = "v"+u+"_"+v+"_"+l; add(l, id, WV); c.push(id); }
+    c.push(v); catene.push(c);
+  });
+  const L = Object.keys(livelli).map(Number).sort((a,b)=>a-b);
+  const pred = {}, succ = {}, pos = {};
+  Object.values(livelli).flat().forEach(id => { pred[id] = []; succ[id] = []; });
+  catene.forEach(c => { for (let k=0;k<c.length-1;k++){ succ[c[k]].push(c[k+1]); pred[c[k+1]].push(c[k]); } });
+  L.forEach(l => livelli[l].forEach((id,i) => pos[id] = i));
+  const bary = (id, vic) => vic.length ? vic.reduce((s,x)=>s+pos[x],0)/vic.length : pos[id];
+  for (let pass = 0; pass < 8; pass++){                       // ordinamento per baricentro: riduce gli incroci
+    const giu = pass % 2 === 0, seq = giu ? L : [...L].reverse();
+    seq.forEach(l => {
+      livelli[l].sort((a,b) => bary(a, giu ? pred[a] : succ[a]) - bary(b, giu ? pred[b] : succ[b]));
+      livelli[l].forEach((id,i) => pos[id] = i);
+    });
+  }
+  const largRiga = l => livelli[l].reduce((s,id)=>s+larg[id],0) + (livelli[l].length-1)*GX;
+  const LW = M*2 + Math.max(...L.map(largRiga)), LH = M*2 + L.length*H + (L.length-1)*GY;
+  const cx = {}, top = {};
+  L.forEach((l, li) => {
+    let x = (LW - largRiga(l))/2;
+    livelli[l].forEach(id => { cx[id] = x + larg[id]/2; top[id] = M + li*(H+GY); x += larg[id] + GX; });
+  });
+  let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${LW}" height="${LH}" viewBox="0 0 ${LW} ${LH}" role="img" aria-label="Matrice di Harris">`;
+  catene.forEach(c => {
+    let d = `M${cx[c[0]]},${top[c[0]]+H}`;
+    for (let k=1;k<c.length;k++){
+      const ym = top[c[k]] - GY/2;
+      d += ` V${ym} H${cx[c[k]]} V${top[c[k]] + (k < c.length-1 ? H : 0)}`;
+    }
+    s += `<path d="${d}" fill="none" stroke="#5c5144" stroke-width="1.4"/>`;
+  });
+  R.nodi.forEach(n => {
+    const x = cx[n]-W/2, y = top[n], u = S.us.find(q => q.n === n), g = R.gruppi[R.rap(n)] || [n];
+    const lab = g.length > 1 ? "US " + g.join(" = ") : "US " + n;
+    const tagl = u && u.tipo === "taglio";
+    s += `<g class="nodo" data-n="${n}" style="cursor:pointer">
+      <rect x="${x}" y="${y}" width="${W}" height="${H}" rx="${tagl?2:6}" fill="${coloreFase(u?.fase)}"
+        stroke="${sel===n?'#b5562b':'#5c5144'}" stroke-width="${sel===n?2.4:1.2}" ${tagl?'stroke-dasharray="5 3"':''}/>
+      <text x="${x+W/2}" y="${y+H/2+5}" text-anchor="middle" font-size="${g.length>1?13:15}" fill="#2a241c">${esc(lab)}</text>
+    </g>`;
+  });
+  s += `</svg>`;
+  box.innerHTML = s;
+  box.querySelectorAll(".nodo").forEach(g => g.addEventListener("click", () => { sel = +g.dataset.n; render(); }));
+}
+
+/* ============ interfaccia ============ */
+function render(){
+  $("exflag").hidden = !/esempio/i.test(S.nome || "");
+  const R = analizza();
+  // stato
+  const st = $("status");
+  if (!R.ok){
+    st.className = "status err";
+    st.innerHTML = `<b>Sequenza contraddittoria.</b> ` + R.cicli.map(c => "US " + c.join(" → ")).join("; ") +
+      `. Ogni freccia significa "è più recente di": una US non può essere più recente di sé stessa. Controlla i rapporti evidenziati in rosso.`;
+  } else {
+    st.className = "status ok";
+    st.innerHTML = `<b>Sequenza coerente.</b> ${R.nodi.length} unità in ${Math.max(0,...Object.values(R.liv))+1} livelli · ${R.diretti.length} rapporti diretti` +
+      (R.ridondanti.length ? ` · ${R.ridondanti.length} ridondanti nascosti` : "");
+  }
+  // legenda fasi
+  const fasi = [...new Set(S.us.map(u => u.fase || "—"))];
+  $("legend").innerHTML = fasi.map(f => `<span><i style="background:${coloreFase(f)}"></i>fase ${esc(f)}</span>`).join("") +
+    `<span><i style="background:transparent;border-style:dashed"></i>taglio</span>`;
+  disegna(R);
+  // elenco US
+  $("us-count").textContent = "(" + S.us.length + ")";
+  $("uslist").innerHTML = [...S.us].sort((a,b)=>a.n-b.n).map(u =>
+    `<div class="us${sel===u.n?' sel':''}" data-n="${u.n}" tabindex="0"><b>US ${u.n}</b><span>${esc(u.desc)}</span><em class="tag">${esc(u.tipo)}${u.fase?' · '+esc(u.fase):''}</em></div>`).join("");
+  $("uslist").querySelectorAll(".us").forEach(d => {
+    const pick = () => { sel = +d.dataset.n; render(); };
+    d.addEventListener("click", pick); d.addEventListener("keydown", e => { if (e.key === "Enter") pick(); });
+  });
+  // rapporti
+  $("rel-count").textContent = "(" + S.rel.length + ")";
+  $("rels").innerHTML = S.rel.map(([a,t,b],i) =>
+    `<div class="rel${!R.ok && R.relBad.has(i) ? ' bad':''}"><span>US ${a} <em>${esc(t)}</em> US ${b}</span><button type="button" data-i="${i}" aria-label="Elimina rapporto">✕</button></div>`).join("");
+  $("rels").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { S.rel.splice(+b.dataset.i,1); salva(); render(); }));
+  // selettori
+  const opts = [...S.us].sort((a,b)=>a.n-b.n).map(u => `<option value="${u.n}">US ${u.n}</option>`).join("");
+  const va = $("r-a").value, vb = $("r-b").value;
+  $("r-a").innerHTML = opts; $("r-b").innerHTML = opts;
+  if (va) $("r-a").value = va; if (vb) $("r-b").value = vb;
+  // dettaglio
+  const d = $("detail");
+  const u = S.us.find(x => x.n === sel);
+  if (!u){ d.hidden = true; return; }
+  d.hidden = false;
+  let rel = "";
+  if (R.ok){
+    const r = R.rap(u.n);
+    const piuAntiche = [...R.raggiunge[r]].sort((x,y)=>x-y).map(x => (R.gruppi[x]||[x]).join("=")).join(", ") || "nessuna";
+    const piuRecenti = R.nodi.filter(x => R.raggiunge[x].has(r)).sort((x,y)=>x-y).map(x => (R.gruppi[x]||[x]).join("=")).join(", ") || "nessuna";
+    rel = `<p><b>Sicuramente più recenti:</b> US ${piuRecenti}</p><p><b>Sicuramente più antiche:</b> US ${piuAntiche}</p>
+      <p class="muted">Le US che non compaiono in nessuno dei due elenchi non hanno un rapporto stratigrafico con questa: la sequenza non dice quale sia più antica.</p>`;
+  }
+  d.innerHTML = `<h3>US ${u.n} <span class="tag">${esc(u.tipo)}</span></h3>
+    <p>${esc(u.desc)}</p>${u.fase ? `<p class="muted">Fase ${esc(u.fase)}</p>` : ""}${rel}
+    <div class="row"><button type="button" id="b-del">Elimina US ${u.n}</button></div>`;
+  $("b-del").addEventListener("click", () => {
+    if (!$("b-del").dataset.ok){ $("b-del").dataset.ok = 1; $("b-del").textContent = "Conferma: elimina US " + u.n + " e i suoi rapporti"; return; }
+    S.us = S.us.filter(x => x.n !== u.n); S.rel = S.rel.filter(([a,,b]) => a !== u.n && b !== u.n); sel = null; salva(); render();
+  });
+}
+
+$("b-add").addEventListener("click", () => {
+  const n = parseInt($("n-num").value, 10), msg = $("add-msg");
+  if (!n || n < 1){ msg.textContent = "Scrivi il numero della US."; return; }
+  if (S.us.some(u => u.n === n)){ msg.textContent = "La US " + n + " esiste già."; return; }
+  S.us.push({n, tipo:$("n-tipo").value, fase:$("n-fase").value.trim(), desc:$("n-desc").value.trim()});
+  msg.textContent = "US " + n + " aggiunta."; $("n-num").value = ""; $("n-desc").value = ""; sel = n; salva(); render();
+});
+$("b-rel").addEventListener("click", () => {
+  const a = +$("r-a").value, b = +$("r-b").value, t = $("r-tipo").value;
+  if (!a || !b) return;
+  if (S.rel.some(([x,y,z]) => x===a && y===t && z===b)) return;
+  S.rel.push([a,t,b]); salva(); render();
+});
+$("b-new").addEventListener("click", () => {
+  const b = $("b-new");
+  if (!b.dataset.ok){ b.dataset.ok = 1; b.textContent = "Conferma: svuota tutto"; setTimeout(()=>{ b.textContent="Nuovo scavo"; delete b.dataset.ok; }, 3000); return; }
+  S = {nome:"Nuovo scavo", us:[], rel:[]}; sel = null; salva(); render(); b.textContent = "Nuovo scavo"; delete b.dataset.ok;
+});
+$("b-example").addEventListener("click", () => { S = clone(ESEMPIO); sel = null; salva(); render(); });
+function scarica(nome, testo, tipo){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([testo], {type:tipo})); a.download = nome;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+$("b-export").addEventListener("click", () => scarica("scavo.json", JSON.stringify(S, null, 2), "application/json"));
+$("b-csv").addEventListener("click", () => {
+  const q = v => '"' + String(v ?? "").replace(/"/g,'""') + '"';
+  const righe = [["US","tipo","fase","descrizione"].join(";")].concat([...S.us].sort((a,b)=>a.n-b.n).map(u => [u.n,q(u.tipo),q(u.fase),q(u.desc)].join(";")));
+  righe.push("", ["US","rapporto","US"].join(";")); S.rel.forEach(([a,t,b]) => righe.push([a,q(t),b].join(";")));
+  scarica("scavo.csv", "﻿" + righe.join("\r\n"), "text/csv;charset=utf-8");
+});
+$("b-import").addEventListener("click", () => $("f-import").click());
+$("f-import").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return;
+  f.text().then(t => { try{ const o = JSON.parse(t); if (!Array.isArray(o.us) || !Array.isArray(o.rel)) throw 0; S = o; sel = null; salva(); render(); }
+                        catch(_){ $("status").className = "status err"; $("status").textContent = "Il file non è un diario di scavo valido."; } });
+  e.target.value = "";
+});
+$("b-print").addEventListener("click", () => window.print());
+render();
+</script>
+</body>
+</html>
