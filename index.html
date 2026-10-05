@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1b1712">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Diario di scavo · Matrice di Harris</title>
+<style>
+  :root{
+    --bg:#f4efe6; --paper:#fffdf8; --ink:#2a241c; --dim:#7a6e5f; --line:#d9cfbf;
+    --terra:#b5562b; --ocra:#c8902e; --ok:#3d7a4f; --err:#b3261e; --warn:#a15c00;
+    --f1:#e8d6b9; --f2:#d4e2c8; --f3:#cfdbe8; --f4:#ead0d4; --f5:#ddd5ea;
+    color-scheme: light;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0; background:var(--bg); color:var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size:15px;}
+  header{padding:14px 18px 10px; border-bottom:1px solid var(--line); background:var(--paper);
+    display:flex; flex-wrap:wrap; gap:10px 18px; align-items:baseline; justify-content:space-between}
+  h1{font-family: Georgia, "Times New Roman", serif; font-size:22px; margin:0; font-weight:700; letter-spacing:.01em}
+  h1 small{font-family:inherit; font-weight:400; color:var(--dim); font-size:15px; margin-left:8px}
+  .tools{display:flex; flex-wrap:wrap; gap:6px}
+  button, select, input, textarea{font:inherit; color:inherit}
+  button{background:var(--paper); border:1px solid var(--line); border-radius:7px; padding:9px 14px; min-height:42px; cursor:pointer}
+  button:hover{border-color:var(--terra)}
+  button.pri{background:var(--terra); color:#fff; border-color:var(--terra)}
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible{outline:2px solid var(--ocra); outline-offset:1px}
+  main{display:grid; grid-template-columns: minmax(300px, 420px) 1fr; gap:0; min-height:calc(100vh - 60px)}
+  @media (max-width: 860px){ main{grid-template-columns:1fr} }
+  aside{border-right:1px solid var(--line); background:var(--paper); padding:14px 16px; overflow:auto}
+  section.view{padding:14px 18px; overflow:auto; min-width:0}
+  h2{font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); margin:18px 0 8px; font-weight:600}
+  h2:first-child{margin-top:0}
+  .row{display:flex; gap:6px; align-items:center; flex-wrap:wrap}
+  input[type=text], input[type=number], input[type=search], select, textarea{background:#fff; border:1px solid var(--line); border-radius:6px; padding:7px 8px; min-height:38px}
+  input[type=number]{width:84px}
+  textarea{width:100%; min-height:52px; resize:vertical}
+  label.f{display:flex; flex-direction:column; gap:3px; font-size:12px; color:var(--dim)}
+  .uslist{display:flex; flex-direction:column; gap:4px; margin-top:6px}
+  .us{display:grid; grid-template-columns:56px 1fr auto; gap:8px; align-items:center; padding:6px 8px;
+      border:1px solid var(--line); border-radius:6px; background:#fff; cursor:pointer}
+  .us.sel{border-color:var(--terra); box-shadow:0 0 0 1px var(--terra) inset}
+  .us.anom{border-left:4px solid var(--warn)}
+  .us b{font-family:Georgia,serif; font-size:16px}
+  .us span{color:var(--dim); font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .tag{font-size:11px; padding:2px 6px; border-radius:99px; border:1px solid var(--line); color:var(--dim); white-space:nowrap}
+  .rels{display:flex; flex-direction:column; gap:3px; margin-top:6px; font-size:14px}
+  .rel{display:flex; justify-content:space-between; align-items:center; gap:8px; padding:4px 8px; border-radius:5px; background:#fff; border:1px solid var(--line)}
+  .rel.bad{border-color:var(--err); background:#fbeceb}
+  .rel button{padding:2px 8px; min-height:0; border:none; color:var(--dim)}
+  .status{margin:0 0 10px; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:var(--paper); font-size:14px}
+  .status.ok{border-color:#b9d3bf}
+  .status.err{border-color:var(--err); background:#fbeceb; color:#5e140f}
+  .status b{font-weight:700}
+  .warnbox{margin:0 0 10px; padding:10px 12px; border-radius:8px; border:1px solid #e3c08a; background:#fdf4e6; color:#5a3a06; font-size:14px}
+  .warnbox ul{margin:6px 0 0; padding-left:18px}
+  .warnbox li{margin:3px 0}
+  .warnbox a{color:inherit; cursor:pointer; text-decoration:underline}
+  .legend{display:flex; flex-wrap:wrap; gap:8px 12px; margin:0 0 10px; font-size:13px; color:var(--dim); align-items:center}
+  .legend i{display:inline-block; width:12px; height:12px; border-radius:3px; border:1px solid #0002; vertical-align:-2px; margin-right:4px}
+  .canvas{background:var(--paper); border:1px solid var(--line); border-radius:8px; overflow:auto}
+  svg text{font-family:Georgia,serif}
+  .nodo{cursor:pointer}
+  .nodo.fade{opacity:.28}
+  .detail{margin-top:12px; padding:14px; border:1px solid var(--line); border-radius:8px; background:#fff}
+  .detail h3{margin:0 0 8px; font-family:Georgia,serif; display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  .grid2{display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:8px; margin:8px 0}
+  .facts{display:grid; gap:4px; margin:10px 0; font-size:14px}
+  .facts b{font-weight:600}
+  .anomalia{margin:10px 0; padding:8px 10px; border-left:4px solid var(--warn); background:#fdf4e6; font-size:14px}
+  .muted{color:var(--dim); font-size:13px}
+  .ex{display:inline-block; font-size:12px; color:#fff; background:var(--ocra); border-radius:99px; padding:2px 8px; margin-left:6px}
+  .chip{display:inline-block; font-size:12px; padding:2px 8px; border-radius:99px; background:#f1e7d8}
+  @media print{ aside, .tools, .detail, .warnbox a{display:none} main{display:block} .canvas{border:none} .nodo.fade{opacity:1} }
+</style>
+</head>
+<body>
+<header>
+  <h1>Diario di scavo <small>Matrice di Harris</small><span class="ex" id="exflag">dati di esempio</span></h1>
+  <div class="tools">
+    <button type="button" id="b-new">Nuovo scavo</button>
+    <button type="button" id="b-example">Esempio</button>
+    <button type="button" id="b-export">Esporta JSON</button>
+    <button type="button" id="b-import">Importa JSON</button><input type="file" id="f-import" accept="application/json" hidden>
+    <button type="button" id="b-csv">Esporta CSV</button>
+    <button type="button" id="b-svg">Esporta matrice</button>
+    <button type="button" id="b-print">Stampa</button>
+  </div>
+</header>
+<main>
+  <aside>
+    <h2>Nuova unità stratigrafica</h2>
+    <div class="row">
+      <input type="number" id="n-num" min="1" placeholder="US" aria-label="Numero US">
+      <select id="n-tipo" aria-label="Tipo">
+        <option value="strato">strato</option><option value="taglio">taglio</option>
+        <option value="riempimento">riempimento</option><option value="struttura">struttura</option>
+      </select>
+      <input type="text" id="n-fase" placeholder="fase" style="width:80px" aria-label="Fase">
+    </div>
+    <div class="row" style="margin-top:6px"><input type="text" id="n-desc" placeholder="descrizione (es. strato di crollo con tegole)" style="flex:1" aria-label="Descrizione"></div>
+    <div class="row" style="margin-top:6px">
+      <label class="f">datazione dai reperti: dal<input type="number" id="n-da" placeholder="anno"></label>
+      <label class="f">al<input type="number" id="n-a" placeholder="anno"></label>
+      <span class="muted" style="align-self:flex-end; padding-bottom:9px">a.C. = numero negativo</span>
+    </div>
+    <div class="row" style="margin-top:8px"><button type="button" class="pri" id="b-add">Aggiungi US</button><span class="muted" id="add-msg" aria-live="polite"></span></div>
+
+    <h2>Nuovo rapporto stratigrafico</h2>
+    <div class="row">
+      <select id="r-a" aria-label="US"></select>
+      <select id="r-tipo" aria-label="Rapporto">
+        <option value="copre">copre</option><option value="taglia">taglia</option>
+        <option value="riempie">riempie</option><option value="si appoggia a">si appoggia a</option>
+        <option value="è uguale a">è uguale a</option>
+      </select>
+      <select id="r-b" aria-label="US"></select>
+      <button type="button" class="pri" id="b-rel">Aggiungi</button>
+    </div>
+    <p class="muted" style="margin:6px 0 0">"Copre", "taglia", "riempie" e "si appoggia a" dicono che la prima US è <b>più recente</b> della seconda. "È uguale a" unisce due US che sono la stessa unità.</p>
+
+    <h2>Unità stratigrafiche <span id="us-count" class="muted"></span></h2>
+    <input type="search" id="q" placeholder="cerca per numero, descrizione, fase o reperti" style="width:100%" aria-label="Cerca">
+    <div class="uslist" id="uslist"></div>
+
+    <h2>Rapporti <span id="rel-count" class="muted"></span></h2>
+    <div class="rels" id="rels"></div>
+  </aside>
+
+  <section class="view">
+    <div class="status" id="status"></div>
+    <div class="warnbox" id="warn" hidden></div>
+    <div class="legend" id="legend"></div>
+    <div class="canvas" id="canvas"></div>
+    <div class="detail" id="detail" hidden></div>
+    <p class="muted" style="margin-top:12px">La matrice mostra solo i rapporti diretti: quelli già implicati da altri (se A copre B e B copre C, "A copre C" è ridondante) vengono nascosti, come vuole il metodo di Harris. Le datazioni si propagano lungo la sequenza: uno strato non può essere più antico di ciò che copre. Funziona senza connessione; i dati restano solo su questo dispositivo.</p>
+  </section>
+</main>
+
+<script>
+"use strict";
+/* ================================================================ dati */
+const ESEMPIO = {
+  nome: "Saggio A — scavo didattico (dati di esempio)",
+  us: [
+    {n:1,  tipo:"strato",      fase:"I",   desc:"Humus superficiale",                         da:1900, a:2026, rep:"plastica, vetro moderno"},
+    {n:2,  tipo:"strato",      fase:"I",   desc:"Strato agricolo moderno",                    da:1700, a:1950, rep:"maiolica, ferro"},
+    {n:3,  tipo:"strato",      fase:"II",  desc:"Crollo di tegole e coppi",                   da:450,  a:600,  rep:"sigillata africana D, tegole"},
+    {n:4,  tipo:"taglio",      fase:"II",  desc:"Taglio di fossa di spoliazione"},
+    {n:5,  tipo:"riempimento", fase:"II",  desc:"Riempimento della fossa 4, terra e pietre",  da:1000, a:1300, rep:"ceramica invetriata medievale"},
+    {n:6,  tipo:"struttura",   fase:"III", desc:"Muro in opera incerta, lato nord"},
+    {n:7,  tipo:"strato",      fase:"III", desc:"Piano pavimentale in cocciopesto",           da:50,   a:150,  rep:"sigillata italica, lucerna"},
+    {n:8,  tipo:"strato",      fase:"III", desc:"Preparazione del pavimento",                 da:1,    a:100,  rep:"pareti sottili"},
+    {n:9,  tipo:"struttura",   fase:"III", desc:"Muro in opera incerta, lato est"},
+    {n:10, tipo:"taglio",      fase:"IV",  desc:"Taglio di buca di palo"},
+    {n:11, tipo:"riempimento", fase:"IV",  desc:"Riempimento della buca 10, carboni",         da:-200, a:-50,  rep:"vernice nera"},
+    {n:12, tipo:"strato",      fase:"IV",  desc:"Livello di frequentazione più antico",       da:-300, a:-100, rep:"vernice nera, anfora greco-italica"},
+    {n:13, tipo:"strato",      fase:"V",   desc:"Argilla sterile naturale"},
+    {n:14, tipo:"strato",      fase:"II",  desc:"Stesso crollo di 3, nel settore est"},
+    {n:15, tipo:"strato",      fase:"II",  desc:"Strato di abbandono, settore ovest",         da:400,  a:550,  rep:"anfore africane"},
+    {n:16, tipo:"taglio",      fase:"II",  desc:"Taglio di fossa per rifiuti"},
+    {n:17, tipo:"riempimento", fase:"II",  desc:"Riempimento della fossa 16, ceramica comune", da:350, a:600,  rep:"ceramica comune, ossa animali"},
+    {n:18, tipo:"struttura",   fase:"III", desc:"Focolare in laterizi"},
+    {n:19, tipo:"strato",      fase:"III", desc:"Battuto pavimentale, settore ovest",         da:50,   a:200,  rep:"sigillata italica"}
+  ],
+  rel: [
+    [1,"copre",2],[2,"copre",3],[2,"copre",5],[5,"riempie",4],[4,"taglia",3],
+    [3,"copre",7],[3,"si appoggia a",6],[4,"taglia",6],[7,"si appoggia a",6],
+    [7,"copre",8],[8,"si appoggia a",9],[6,"copre",12],[9,"copre",12],[8,"copre",12],
+    [11,"riempie",10],[10,"taglia",12],[8,"copre",11],[12,"copre",13],[14,"è uguale a",3],
+    [2,"copre",14],[2,"copre",15],[2,"copre",17],[17,"riempie",16],[16,"taglia",15],
+    [15,"copre",18],[18,"si appoggia a",19],[16,"taglia",19],[19,"si appoggia a",6],[19,"copre",12]
+  ]
+};
+const CHIAVE = "diario-scavo-harris-v2";
+let S = carica() || clone(ESEMPIO);
+let sel = null, filtro = "";
+
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+function carica(){ try{ const t = localStorage.getItem(CHIAVE); return t ? JSON.parse(t) : null; }catch(e){ return null; } }
+function salva(){ try{ localStorage.setItem(CHIAVE, JSON.stringify(S)); }catch(e){} }
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const num = v => (v === "" || v == null || isNaN(+v)) ? null : Math.round(+v);
+const anno = y => y == null ? "?" : (y < 0 ? (-y) + " a.C." : y + " d.C.");
+const intervallo = (da, a) => (da == null && a == null) ? "" : (da != null && a != null ? anno(da) + " – " + anno(a) : da != null ? "dopo il " + anno(da) : "entro il " + anno(a));
+
+/* ============================================== analisi stratigrafica */
+function analizza(){
+  const nums = S.us.map(u => u.n);
+  const usDi = Object.fromEntries(S.us.map(u => [u.n, u]));
+  // 1. "è uguale a" -> union-find
+  const par = {}; nums.forEach(n => par[n] = n);
+  const find = x => par[x] === x ? x : (par[x] = find(par[x]));
+  S.rel.forEach(([a,t,b]) => { if (t === "è uguale a" && par[a] != null && par[b] != null) par[find(a)] = find(b); });
+  const gruppi = {}; nums.forEach(n => (gruppi[find(n)] ||= []).push(n));
+  Object.values(gruppi).forEach(g => g.sort((x,y)=>x-y));
+  const rap = n => gruppi[find(n)][0];               // rappresentante = US con numero più basso
+  const nodi = [...new Set(nums.map(rap))].sort((a,b)=>a-b);
+  const membri = r => gruppi[find(r)] || [r];
+
+  // 2. archi "più recente -> più antico"
+  const succ = {}, pred = {}; nodi.forEach(n => { succ[n] = new Set(); pred[n] = new Set(); });
+  const origine = {};
+  S.rel.forEach(([a,t,b], i) => {
+    if (t === "è uguale a" || par[a] == null || par[b] == null) return;
+    const A = rap(a), B = rap(b);
+    if (A === B) { (origine["self"+A] ||= []).push(i); succ[A].add(A); return; }
+    succ[A].add(B); pred[B].add(A); (origine[A+">"+B] ||= []).push(i);
+  });
+
+  // 3. cicli (contraddizioni)
+  const colore = {}, pila = [], cicli = [];
+  function dfs(u){
+    colore[u] = 1; pila.push(u);
+    for (const v of succ[u]){
+      if (colore[v] === 1){ cicli.push(pila.slice(pila.indexOf(v)).concat(v)); }
+      else if (!colore[v]) dfs(v);
+    }
+    pila.pop(); colore[u] = 2;
+  }
+  nodi.forEach(n => { if (!colore[n]) dfs(n); });
+  if (cicli.length){
+    const relBad = new Set();
+    cicli.forEach(c => { for (let k=0;k<c.length-1;k++){ const key = c[k]===c[k+1] ? "self"+c[k] : c[k]+">"+c[k+1]; (origine[key]||[]).forEach(i=>relBad.add(i)); } });
+    return {ok:false, cicli, relBad, gruppi, rap, nodi, membri};
+  }
+
+  // 4. ordine topologico (dal più recente al più antico) + riduzione transitiva
+  const ordine = [], vis = {};
+  const f = u => { vis[u]=1; succ[u].forEach(v => { if(!vis[v]) f(v); }); ordine.push(u); };
+  nodi.forEach(n => { if(!vis[n]) f(n); });
+  ordine.reverse();
+  const raggiunge = {};
+  for (let i = ordine.length-1; i >= 0; i--){
+    const u = ordine[i], r = new Set();
+    succ[u].forEach(v => { r.add(v); raggiunge[v].forEach(w => r.add(w)); });
+    raggiunge[u] = r;
+  }
+  const diretti = [], ridondanti = [];
+  nodi.forEach(u => succ[u].forEach(v => {
+    let altro = false;
+    for (const w of succ[u]) if (w !== v && raggiunge[w].has(v)) { altro = true; break; }
+    (altro ? ridondanti : diretti).push([u,v]);
+  }));
+
+  // 5. livelli (percorso più lungo dall'alto)
+  const liv = {}; ordine.forEach(u => liv[u] = liv[u] ?? 0);
+  ordine.forEach(u => succ[u].forEach(v => { liv[v] = Math.max(liv[v] ?? 0, liv[u] + 1); }));
+
+  // 6. cronologia: datazione propria di ogni nodo (unione dei membri uguali)
+  const proprio = {};
+  nodi.forEach(r => {
+    let da = null, a = null;
+    membri(r).forEach(m => { const u = usDi[m]; if (!u) return;
+      if (u.da != null) da = da == null ? u.da : Math.max(da, u.da);
+      if (u.a  != null) a  = a  == null ? u.a  : Math.min(a,  u.a); });
+    proprio[r] = {da, a};
+  });
+  // terminus post quem: dal basso verso l'alto. Ciò che sta sopra non può essere più antico di ciò che copre.
+  const tpq = {}, tpqDa = {};
+  for (let i = ordine.length-1; i >= 0; i--){
+    const u = ordine[i]; let best = proprio[u].da, from = best != null ? u : null;
+    succ[u].forEach(v => { if (tpq[v] != null && (best == null || tpq[v] > best)) { best = tpq[v]; from = tpqDa[v]; } });
+    tpq[u] = best; tpqDa[u] = from;
+  }
+  // terminus ante quem: dall'alto verso il basso.
+  const taq = {}, taqDa = {};
+  ordine.forEach(u => {
+    let best = proprio[u].a, from = best != null ? u : null;
+    pred[u].forEach(v => { if (taq[v] != null && (best == null || taq[v] < best)) { best = taq[v]; from = taqDa[v]; } });
+    taq[u] = best; taqDa[u] = from;
+  });
+  // anomalie: uno strato datato "entro X" sta sopra a qualcosa datato "dopo Y" con Y > X
+  const anomalie = [];
+  nodi.forEach(u => {
+    const p = proprio[u];
+    if (p.da != null && p.a != null && p.da > p.a) anomalie.push({n:u, tipo:"intervallo", testo:`la datazione inserita va dal ${anno(p.da)} al ${anno(p.a)}: l'inizio è dopo la fine`});
+    let peggiore = null;
+    succ[u].forEach(v => { if (tpq[v] != null && p.a != null && tpq[v] > p.a && (!peggiore || tpq[v] > tpq[peggiore])) peggiore = v; });
+    if (peggiore != null) anomalie.push({n:u, tipo:"sequenza", sotto:tpqDa[peggiore], valore:tpq[peggiore],
+      testo:`è datata entro il ${anno(p.a)}, ma si trova sopra la US ${membri(tpqDa[peggiore]).join("=")}, che non può essere anteriore al ${anno(tpq[peggiore])}`});
+  });
+  return {ok:true, gruppi, rap, nodi, membri, diretti, ridondanti, liv, raggiunge, proprio, tpq, taq, anomalie, usDi};
+}
+
+/* ============================================== disegno della matrice */
+const COL_FASE = ["var(--f1)","var(--f2)","var(--f3)","var(--f4)","var(--f5)"];
+const COL_FASE_HEX = ["#e8d6b9","#d4e2c8","#cfdbe8","#ead0d4","#ddd5ea"];
+function indiceFase(f){ const fasi = [...new Set(S.us.map(u => u.fase || "—"))]; return fasi.indexOf(f || "—") % COL_FASE.length; }
+const coloreFase = f => COL_FASE[indiceFase(f)];
+
+function disegna(R){
+  const box = $("canvas");
+  if (!R.ok){ box.innerHTML = ""; return; }
+  if (!R.nodi.length){ box.innerHTML = `<p class="muted" style="padding:16px">Aggiungi le unità stratigrafiche e i loro rapporti: la matrice si disegna da sola.</p>`; return; }
+  const W = 104, H = 50, GX = 22, GY = 46, M = 24, WV = 14;
+  const livelli = {}, larg = {}, catene = [];
+  const add = (l, id, w) => { (livelli[l] ||= []).push(id); larg[id] = w; };
+  R.nodi.forEach(n => add(R.liv[n], n, W));
+  R.diretti.forEach(([u,v]) => {
+    const c = [u];
+    for (let l = R.liv[u]+1; l < R.liv[v]; l++){ const id = "v"+u+"_"+v+"_"+l; add(l, id, WV); c.push(id); }
+    c.push(v); catene.push(c);
+  });
+  const L = Object.keys(livelli).map(Number).sort((a,b)=>a-b);
+  const pr = {}, sc = {}, pos = {};
+  Object.values(livelli).flat().forEach(id => { pr[id] = []; sc[id] = []; });
+  catene.forEach(c => { for (let k=0;k<c.length-1;k++){ sc[c[k]].push(c[k+1]); pr[c[k+1]].push(c[k]); } });
+  L.forEach(l => livelli[l].forEach((id,i) => pos[id] = i));
+  const bary = (id, vic) => vic.length ? vic.reduce((s,x)=>s+pos[x],0)/vic.length : pos[id];
+  for (let pass = 0; pass < 8; pass++){
+    const giu = pass % 2 === 0, seq = giu ? L : [...L].reverse();
+    seq.forEach(l => {
+      livelli[l].sort((a,b) => bary(a, giu ? pr[a] : sc[a]) - bary(b, giu ? pr[b] : sc[b]));
+      livelli[l].forEach((id,i) => pos[id] = i);
+    });
+  }
+  const largRiga = l => livelli[l].reduce((s,id)=>s+larg[id],0) + (livelli[l].length-1)*GX;
+  const LW = M*2 + Math.max(...L.map(largRiga)), LH = M*2 + L.length*H + (L.length-1)*GY;
+  const cx = {}, top = {};
+  L.forEach((l, li) => {
+    let x = (LW - largRiga(l))/2;
+    livelli[l].forEach(id => { cx[id] = x + larg[id]/2; top[id] = M + li*(H+GY); x += larg[id] + GX; });
+  });
+  // evidenziazione della catena della US selezionata
+  const rs = sel != null && R.usDi[sel] ? R.rap(sel) : null;
+  const vicini = new Set();
+  if (rs != null){ vicini.add(rs); R.raggiunge[rs].forEach(x => vicini.add(x)); R.nodi.forEach(x => { if (R.raggiunge[x].has(rs)) vicini.add(x); }); }
+  const anomali = new Set(R.anomalie.map(a => a.n));
+
+  let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${LW}" height="${LH}" viewBox="0 0 ${LW} ${LH}" role="img" aria-label="Matrice di Harris">`;
+  s += `<rect width="${LW}" height="${LH}" fill="#fffdf8"/>`;
+  catene.forEach(c => {
+    let d = `M${cx[c[0]]},${top[c[0]]+H}`;
+    for (let k=1;k<c.length;k++){ const ym = top[c[k]] - GY/2; d += ` V${ym} H${cx[c[k]]} V${top[c[k]] + (k < c.length-1 ? H : 0)}`; }
+    const spento = rs != null && !(vicini.has(c[0]) && vicini.has(c[c.length-1]));
+    s += `<path d="${d}" fill="none" stroke="#5c5144" stroke-width="1.4" opacity="${spento ? .2 : 1}"/>`;
+  });
+  R.nodi.forEach(n => {
+    const x = cx[n]-W/2, y = top[n], u = R.usDi[n], g = R.membri(n);
+    const lab = g.length > 1 ? "US " + g.join(" = ") : "US " + n;
+    const tagl = u && u.tipo === "taglio", an = anomali.has(n), selez = rs === n;
+    const p = R.proprio[n], dt = (p.da != null || p.a != null) ? intervallo(p.da, p.a) : "";
+    const fade = rs != null && !vicini.has(n) ? " fade" : "";
+    s += `<g class="nodo${fade}" data-n="${n}">
+      <rect x="${x}" y="${y}" width="${W}" height="${H}" rx="${tagl?2:7}" fill="${COL_FASE_HEX[indiceFase(u?.fase)]}"
+        stroke="${an ? '#a15c00' : selez ? '#b5562b' : '#5c5144'}" stroke-width="${an || selez ? 2.6 : 1.2}" ${tagl?'stroke-dasharray="5 3"':''}/>
+      <text x="${x+W/2}" y="${y + (dt ? 21 : 30)}" text-anchor="middle" font-size="${g.length>1?13:15}" fill="#2a241c">${esc(lab)}</text>
+      ${dt ? `<text x="${x+W/2}" y="${y+38}" text-anchor="middle" font-size="10.5" fill="#5c5144" font-family="system-ui, sans-serif">${esc(dt)}</text>` : ""}
+      ${an ? `<circle cx="${x+W-2}" cy="${y+2}" r="9" fill="#a15c00"/><text x="${x+W-2}" y="${y+6.5}" text-anchor="middle" font-size="13" font-weight="700" fill="#fff" font-family="system-ui, sans-serif">!</text>` : ""}
+    </g>`;
+  });
+  s += `</svg>`;
+  box.innerHTML = s;
+  box.querySelectorAll(".nodo").forEach(g => g.addEventListener("click", e => { e.stopPropagation(); sel = +g.dataset.n; render(); }));
+  box.querySelector("svg").addEventListener("click", () => { if (sel != null){ sel = null; render(); } });
+}
+
+/* ============================================== interfaccia */
+function render(){
+  $("exflag").hidden = !/esempio/i.test(S.nome || "");
+  const R = analizza();
+  const st = $("status");
+  if (!R.ok){
+    st.className = "status err";
+    st.innerHTML = `<b>Sequenza contraddittoria.</b> ` + R.cicli.map(c => "US " + c.join(" → ")).join("; ") +
+      `. Ogni freccia significa "è più recente di": una US non può essere più recente di sé stessa. Controlla i rapporti evidenziati in rosso.`;
+  } else {
+    st.className = "status ok";
+    st.innerHTML = `<b>Sequenza coerente.</b> ${R.nodi.length} unità in ${R.nodi.length ? Math.max(...Object.values(R.liv))+1 : 0} livelli · ${R.diretti.length} rapporti diretti` +
+      (R.ridondanti.length ? ` · ${R.ridondanti.length} ridondanti nascosti` : "");
+  }
+  // anomalie cronologiche
+  const w = $("warn");
+  if (R.ok && R.anomalie.length){
+    w.hidden = false;
+    w.innerHTML = `<b>${R.anomalie.length === 1 ? "Un'anomalia cronologica" : R.anomalie.length + " anomalie cronologiche"}.</b> La stratigrafia e le datazioni dei reperti non tornano. Può trattarsi di un reperto intrusivo o residuo, di una datazione da rivedere o di un rapporto stratigrafico sbagliato: decide chi ha scavato.<ul>` +
+      R.anomalie.map(a => `<li><a data-n="${a.n}">US ${R.membri(a.n).join("=")}</a> ${esc(a.testo)}${a.testo.endsWith(".") ? "" : "."}</li>`).join("") + `</ul>`;
+    w.querySelectorAll("a[data-n]").forEach(a => a.addEventListener("click", () => { sel = +a.dataset.n; render(); }));
+  } else w.hidden = true;
+  // legenda
+  const fasi = [...new Set(S.us.map(u => u.fase || "—"))];
+  $("legend").innerHTML = fasi.map(f => `<span><i style="background:${coloreFase(f)}"></i>fase ${esc(f)}</span>`).join("") +
+    `<span><i style="background:transparent;border-style:dashed"></i>taglio</span><span><i style="background:#a15c00;border-radius:99px"></i>anomalia cronologica</span>` +
+    (sel != null ? `<span class="chip">clicca su uno spazio vuoto per togliere la selezione</span>` : "");
+  disegna(R);
+  // elenco US con ricerca
+  const anom = new Set(R.ok ? R.anomalie.map(a => a.n) : []);
+  const q = filtro.trim().toLowerCase();
+  const lista = [...S.us].sort((a,b)=>a.n-b.n).filter(u => !q || [u.n, u.desc, u.fase, u.tipo, u.rep].join(" ").toLowerCase().includes(q));
+  $("us-count").textContent = "(" + S.us.length + ")";
+  $("uslist").innerHTML = lista.map(u =>
+    `<div class="us${sel===u.n?' sel':''}${R.ok && anom.has(R.rap(u.n)) ? ' anom':''}" data-n="${u.n}" tabindex="0"><b>US ${u.n}</b><span>${esc(u.desc)}</span><em class="tag">${esc(u.tipo)}${u.fase?' · '+esc(u.fase):''}</em></div>`).join("")
+    || `<p class="muted">Nessuna US corrisponde alla ricerca.</p>`;
+  $("uslist").querySelectorAll(".us").forEach(d => {
+    const pick = () => { sel = +d.dataset.n; render(); };
+    d.addEventListener("click", pick); d.addEventListener("keydown", e => { if (e.key === "Enter") pick(); });
+  });
+  // rapporti
+  $("rel-count").textContent = "(" + S.rel.length + ")";
+  $("rels").innerHTML = S.rel.map(([a,t,b],i) =>
+    `<div class="rel${!R.ok && R.relBad.has(i) ? ' bad':''}"><span>US ${a} <em>${esc(t)}</em> US ${b}</span><button type="button" data-i="${i}" aria-label="Elimina rapporto">✕</button></div>`).join("");
+  $("rels").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { S.rel.splice(+b.dataset.i,1); salva(); render(); }));
+  // selettori
+  const opts = [...S.us].sort((a,b)=>a.n-b.n).map(u => `<option value="${u.n}">US ${u.n}</option>`).join("");
+  const va = $("r-a").value, vb = $("r-b").value;
+  $("r-a").innerHTML = opts; $("r-b").innerHTML = opts;
+  if (va) $("r-a").value = va; if (vb) $("r-b").value = vb;
+  dettaglio(R);
+}
+
+function dettaglio(R){
+  const d = $("detail");
+  const u = S.us.find(x => x.n === sel);
+  if (!u){ d.hidden = true; return; }
+  d.hidden = false;
+  // rapporti diretti in entrambi i versi, come li scriverebbe la scheda US
+  const inv = {"copre":"coperto da","taglia":"tagliato da","riempie":"riempito da","si appoggia a":"gli si appoggia","è uguale a":"è uguale a"};
+  const dir = S.rel.filter(([a]) => a === u.n).map(([,t,b]) => `${t} US ${b}`);
+  const rev = S.rel.filter(([,,b]) => b === u.n).map(([a,t]) => `${inv[t]} US ${a}`);
+  let crono = "", seq = "", anomHtml = "";
+  if (R.ok){
+    const r = R.rap(u.n);
+    const elenco = arr => arr.length ? "US " + arr.map(x => R.membri(x).join("=")).join(", ") : "nessuna";
+    const antiche = [...R.raggiunge[r]].sort((a,b)=>a-b);
+    const recenti = R.nodi.filter(x => R.raggiunge[x].has(r)).sort((a,b)=>a-b);
+    seq = `<div class="facts"><div><b>Sicuramente più recenti:</b> ${elenco(recenti)}</div><div><b>Sicuramente più antiche:</b> ${elenco(antiche)}</div>
+      <div class="muted">Le US che non compaiono in nessuno dei due elenchi non hanno un rapporto stratigrafico con questa: la sequenza non dice quale sia più antica.</div></div>`;
+    const p = R.proprio[r], t1 = R.tpq[r], t2 = R.taq[r];
+    const daSeq = (t1 != null && t1 !== p.da) || (t2 != null && t2 !== p.a);
+    crono = `<div class="facts"><div><b>Datazione dai reperti:</b> ${intervallo(p.da, p.a) || "nessuna"}</div>` +
+      ((t1 != null || t2 != null) ? `<div><b>Datazione ammessa dalla sequenza:</b> ${t1 != null ? "non prima del " + anno(t1) : "nessun limite inferiore"}${t2 != null ? ", non dopo il " + anno(t2) : ""}${daSeq ? ' <span class="chip">ricavata dagli strati vicini</span>' : ""}</div>` : "") + `</div>`;
+    anomHtml = R.anomalie.filter(a => a.n === r).map(a => `<div class="anomalia"><b>Anomalia:</b> la US ${R.membri(r).join("=")} ${esc(a.testo)}${a.testo.endsWith(".") ? "" : "."} Reperto intrusivo o residuo, datazione da rivedere, o rapporto sbagliato?</div>`).join("");
+  }
+  d.innerHTML = `<h3>US ${u.n} <span class="tag">${esc(u.tipo)}</span>${u.fase ? `<span class="tag">fase ${esc(u.fase)}</span>` : ""}</h3>
+    <p style="margin:0 0 6px">${esc(u.desc) || '<span class="muted">nessuna descrizione</span>'}</p>
+    ${u.rep ? `<p class="muted" style="margin:0 0 6px">Reperti: ${esc(u.rep)}</p>` : ""}
+    ${anomHtml}${crono}${seq}
+    <div class="facts"><div><b>Rapporti registrati:</b> ${[...dir, ...rev].map(esc).join(" · ") || "nessuno"}</div></div>
+    <details><summary style="cursor:pointer; margin:6px 0">Modifica la scheda</summary>
+      <div class="grid2">
+        <label class="f">tipo<select id="e-tipo">${["strato","taglio","riempimento","struttura"].map(t => `<option${t===u.tipo?" selected":""}>${t}</option>`).join("")}</select></label>
+        <label class="f">fase<input type="text" id="e-fase" value="${esc(u.fase)}"></label>
+        <label class="f">dal (anno)<input type="number" id="e-da" value="${u.da ?? ""}"></label>
+        <label class="f">al (anno)<input type="number" id="e-a" value="${u.a ?? ""}"></label>
+      </div>
+      <label class="f">descrizione<input type="text" id="e-desc" value="${esc(u.desc)}" style="width:100%"></label>
+      <label class="f" style="margin-top:6px">reperti datanti<input type="text" id="e-rep" value="${esc(u.rep)}" style="width:100%" placeholder="es. sigillata africana D, moneta di Costantino"></label>
+      <div class="row" style="margin-top:8px"><button type="button" class="pri" id="b-save">Salva la scheda</button></div>
+    </details>
+    <div class="row" style="margin-top:10px"><button type="button" id="b-desel">Chiudi</button><button type="button" id="b-del">Elimina US ${u.n}</button></div>`;
+  $("b-save").addEventListener("click", () => {
+    Object.assign(u, {tipo:$("e-tipo").value, fase:$("e-fase").value.trim(), desc:$("e-desc").value.trim(),
+                      rep:$("e-rep").value.trim(), da:num($("e-da").value), a:num($("e-a").value)});
+    salva(); render();
+  });
+  $("b-desel").addEventListener("click", () => { sel = null; render(); });
+  $("b-del").addEventListener("click", () => {
+    const b = $("b-del");
+    if (!b.dataset.ok){ b.dataset.ok = 1; b.textContent = "Conferma: elimina US " + u.n + " e i suoi rapporti"; return; }
+    S.us = S.us.filter(x => x.n !== u.n); S.rel = S.rel.filter(([a,,c]) => a !== u.n && c !== u.n); sel = null; salva(); render();
+  });
+}
+
+/* ============================================== azioni */
+$("b-add").addEventListener("click", () => {
+  const n = parseInt($("n-num").value, 10), msg = $("add-msg");
+  if (!n || n < 1){ msg.textContent = "Scrivi il numero della US."; return; }
+  if (S.us.some(u => u.n === n)){ msg.textContent = "La US " + n + " esiste già."; return; }
+  S.us.push({n, tipo:$("n-tipo").value, fase:$("n-fase").value.trim(), desc:$("n-desc").value.trim(), da:num($("n-da").value), a:num($("n-a").value)});
+  msg.textContent = "US " + n + " aggiunta."; ["n-num","n-desc","n-da","n-a"].forEach(id => $(id).value = ""); sel = n; salva(); render();
+});
+$("b-rel").addEventListener("click", () => {
+  const a = +$("r-a").value, b = +$("r-b").value, t = $("r-tipo").value;
+  if (!a || !b) return;
+  if (S.rel.some(([x,y,z]) => x===a && y===t && z===b)) return;
+  S.rel.push([a,t,b]); salva(); render();
+});
+$("q").addEventListener("input", e => { filtro = e.target.value; render(); });
+$("b-new").addEventListener("click", () => {
+  const b = $("b-new");
+  if (!b.dataset.ok){ b.dataset.ok = 1; b.textContent = "Conferma: svuota tutto"; setTimeout(()=>{ b.textContent="Nuovo scavo"; delete b.dataset.ok; }, 3000); return; }
+  S = {nome:"Nuovo scavo", us:[], rel:[]}; sel = null; salva(); render(); b.textContent = "Nuovo scavo"; delete b.dataset.ok;
+});
+$("b-example").addEventListener("click", () => { S = clone(ESEMPIO); sel = null; salva(); render(); });
+function scarica(nome, testo, tipo){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([testo], {type:tipo})); a.download = nome;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+$("b-export").addEventListener("click", () => scarica("scavo.json", JSON.stringify(S, null, 2), "application/json"));
+$("b-csv").addEventListener("click", () => {
+  const q = v => '"' + String(v ?? "").replace(/"/g,'""') + '"';
+  const righe = [["US","tipo","fase","descrizione","datazione dal","datazione al","reperti"].join(";")]
+    .concat([...S.us].sort((a,b)=>a.n-b.n).map(u => [u.n,q(u.tipo),q(u.fase),q(u.desc),u.da ?? "",u.a ?? "",q(u.rep)].join(";")));
+  righe.push("", ["US","rapporto","US"].join(";")); S.rel.forEach(([a,t,b]) => righe.push([a,q(t),b].join(";")));
+  scarica("scavo.csv", "﻿" + righe.join("\r\n"), "text/csv;charset=utf-8");
+});
+$("b-svg").addEventListener("click", () => {
+  const prima = sel; sel = null; render();
+  const svg = $("canvas").querySelector("svg");
+  if (svg) scarica("matrice-harris.svg", '<?xml version="1.0" encoding="UTF-8"?>\n' + svg.outerHTML, "image/svg+xml");
+  sel = prima; render();
+});
+$("b-import").addEventListener("click", () => $("f-import").click());
+$("f-import").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return;
+  f.text().then(t => { try{ const o = JSON.parse(t); if (!Array.isArray(o.us) || !Array.isArray(o.rel)) throw 0; S = o; sel = null; salva(); render(); }
+                        catch(_){ $("status").className = "status err"; $("status").textContent = "Il file non è un diario di scavo valido."; } });
+  e.target.value = "";
+});
+$("b-print").addEventListener("click", () => window.print());
+render();
+</script>
+</body>
+</html>
